@@ -25,7 +25,30 @@ class SampleMeter:
         self.status['closeUnit'] = pl.pl1000CloseUnit(self.chandle)
         assert_pico_ok(self.status['closeUnit'])
 
-    def get_raw_data(self, channels=[1, 2]):
+    def _get_raw_data_single(self, channel=1):
+        channel_data = {'channels_enum': channel,
+                        'channel_a_raw': [],
+                        'channel_a_avg': [],
+                        'channel_a_std': []}
+        single_value_channel_a = ctypes.c_int16()
+        # Open PicoLog 1000
+        self._open_picolog_comm()
+        for _ in range(self.iterations):
+            # Get a single ADC count value from channel A
+            self.status['getSingle'] = pl.pl1000GetSingle(self.chandle,
+                                                          pl.PL1000Inputs['PL1000_CHANNEL_' + str(channel)],
+                                                          ctypes.byref(single_value_channel_a))
+            assert_pico_ok(self.status['getSingle'])
+            channel_data['channel_a_raw'].append(single_value_channel_a.value)
+
+        # Close PicoLog 1000
+        self._close_picolog_comm()
+
+        # Assert correct closure of PicoLog 1000
+        assert_pico_ok(self.status['closeUnit'])
+        return channel_data
+
+    def _get_raw_data_dual(self, channels=[1, 2]):
         channel_data = {'channels_enum': channels,
                         'channel_a_raw': [], 'channel_b_raw': [],
                         'channel_a_avg': [], 'channel_b_avg': [],
@@ -55,8 +78,8 @@ class SampleMeter:
         return channel_data
 
     def compute_data_avg(self, channels=[1, 2]):
-        channel_data = self.get_raw_data(channels)
-        # We need to check for outliers
+        channel_data = self._get_raw_data_dual(channels)
+        # TODO we need to check for outliers
 
         # Compute mean of raw data
         channel_data['channel_a_avg'] = np.mean(channel_data['channel_a_raw'])
